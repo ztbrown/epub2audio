@@ -97,6 +97,9 @@ func ParseEPUB(filePath string) (*Book, error) {
 		if !strings.Contains(item.MediaType, "html") {
 			continue
 		}
+		if isFrontMatter(ref.IDRef, item.Href) {
+			continue
+		}
 
 		itemPath := item.Href
 		if opfDir != "." {
@@ -115,6 +118,10 @@ func ParseEPUB(filePath string) (*Book, error) {
 
 		text = strings.TrimSpace(text)
 		if text == "" {
+			continue
+		}
+
+		if isFrontMatterContent(title, text) {
 			continue
 		}
 
@@ -267,4 +274,50 @@ func sanitizeFilename(name string) string {
 		return "Unknown"
 	}
 	return name
+}
+
+var frontMatterIDs = []string{
+	"cover", "titlepage", "title", "copyright", "colophon",
+	"dedication", "halftitle", "half-title", "frontmatter",
+	"toc", "tableofcontents", "table-of-contents", "contents",
+	"aboutauth", "about-author", "abouttheauthor",
+	"also-by", "alsoby", "otherbooks",
+	"endorsements", "praise", "epigraph",
+	"ad-card", "adcard",
+}
+
+func isFrontMatter(id, href string) bool {
+	lower := strings.ToLower(id + " " + href)
+	for _, fm := range frontMatterIDs {
+		if strings.Contains(lower, fm) {
+			return true
+		}
+	}
+	return false
+}
+
+func isFrontMatterContent(title, text string) bool {
+	lower := strings.ToLower(title)
+	for _, kw := range []string{
+		"table of contents", "contents",
+		"copyright", "all rights reserved",
+		"also by", "other books by",
+		"about the author", "about the editor",
+		"title page",
+	} {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	words := len(strings.Fields(text))
+	if words < 50 {
+		return true
+	}
+	lowerText := strings.ToLower(text)
+	if strings.Contains(lowerText, "all rights reserved") ||
+		strings.Contains(lowerText, "isbn") && words < 200 ||
+		strings.Contains(lowerText, "library of congress") && words < 200 {
+		return true
+	}
+	return false
 }
