@@ -126,10 +126,6 @@ func ParseEPUB(filePath string) (*Book, error) {
 		}
 
 		chapterNum++
-		if title == "" {
-			title = fmt.Sprintf("Chapter %d", chapterNum)
-		}
-
 		chapters = append(chapters, Chapter{
 			Title: title,
 			Text:  text,
@@ -144,9 +140,20 @@ func ParseEPUB(filePath string) (*Book, error) {
 	if title == "" {
 		title = strings.TrimSuffix(path.Base(filePath), path.Ext(filePath))
 	}
+	bookTitle := sanitizeFilename(title)
+
+	if len(chapters) == 1 {
+		chapters[0].Title = bookTitle
+	} else {
+		for i := range chapters {
+			if chapters[i].Title == "" {
+				chapters[i].Title = fmt.Sprintf("%s - Part %d", bookTitle, i+1)
+			}
+		}
+	}
 
 	return &Book{
-		Title:    sanitizeFilename(title),
+		Title:    bookTitle,
 		Author:   pkg.Metadata.Creator,
 		Chapters: chapters,
 	}, nil

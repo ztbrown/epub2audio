@@ -78,15 +78,15 @@ func newEdgeEngine(cfg EngineConfig) (*EdgeEngine, error) {
 func (e *EdgeEngine) Name() string { return fmt.Sprintf("edge (%s)", e.voice) }
 
 func (e *EdgeEngine) Synthesize(text string, mp3Path string, meta MP3Meta) error {
-	ssml := textToSSML(text, e.voice)
+	prepared := prepareForTTS(text)
 
-	tmpFile, err := os.CreateTemp("", "epub2audio-*.ssml")
+	tmpFile, err := os.CreateTemp("", "epub2audio-*.txt")
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmpFile.Name())
 
-	if _, err := tmpFile.WriteString(ssml); err != nil {
+	if _, err := tmpFile.WriteString(prepared); err != nil {
 		tmpFile.Close()
 		return err
 	}
@@ -104,30 +104,21 @@ func (e *EdgeEngine) Synthesize(text string, mp3Path string, meta MP3Meta) error
 	return tagMP3(tmpMP3, mp3Path, meta)
 }
 
-func textToSSML(text, voice string) string {
+func prepareForTTS(text string) string {
 	cleaned := cleanText(text)
 	paragraphs := splitParagraphs(cleaned)
 
 	var sb strings.Builder
-	sb.WriteString(`<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">`)
-	sb.WriteString(fmt.Sprintf(`<voice name="%s">`, voice))
-	sb.WriteString(`<prosody rate="-5%" pitch="-2%">`)
-
 	for i, para := range paragraphs {
 		para = strings.TrimSpace(para)
 		if para == "" {
 			continue
 		}
-		para = escapeXML(para)
 		sb.WriteString(para)
 		if i < len(paragraphs)-1 {
-			sb.WriteString(`<break time="600ms"/>`)
+			sb.WriteString("\n\n")
 		}
 	}
-
-	sb.WriteString(`</prosody>`)
-	sb.WriteString(`</voice>`)
-	sb.WriteString(`</speak>`)
 	return sb.String()
 }
 
@@ -186,15 +177,6 @@ func splitParagraphs(text string) []string {
 		paragraphs = append(paragraphs, current.String())
 	}
 	return paragraphs
-}
-
-func escapeXML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	return s
 }
 
 // Piper TTS - free, local, high-quality neural voices
